@@ -64,19 +64,19 @@ def generate_with_groq(prompt: str) -> str:
 def generate_reply(user_query: str, retrieved_tickets: list[dict]) -> tuple[str, bool]:
     prompt = build_prompt(user_query, retrieved_tickets)
 
-    # Try Gemini first
-    try:
-        reply = generate_with_gemini(prompt)
-        logger.info("[LLM] Reply generated using Gemini")
-        return reply, False
-    except Exception as e:
-        logger.warning(f"[LLM] Gemini failed: {e} — switching to Groq")
-
-    # Fallback to Groq
+    # Try Groq first (reliable free tier)
     try:
         reply = generate_with_groq(prompt)
-        logger.info("[LLM] Reply generated using Groq (fallback)")
+        logger.info("[LLM] Reply generated using Groq")
+        return reply, False
+    except Exception as e:
+        logger.warning(f"[LLM] Groq failed: {e} — switching to Gemini")
+
+    # Fallback to Gemini
+    try:
+        reply = generate_with_gemini(prompt)
+        logger.info("[LLM] Reply generated using Gemini (fallback)")
         return reply, True
     except Exception as e:
-        logger.error(f"[LLM] Groq also failed: {e}")
-        raise RuntimeError("Both Gemini and Groq failed. Please try again later.")
+        logger.error(f"[LLM] Both failed: {e}")
+        raise RuntimeError("Both LLM providers failed. Please try again later.")
