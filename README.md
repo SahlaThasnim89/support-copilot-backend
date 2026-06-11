@@ -9,12 +9,11 @@ Built with **FastAPI + Supabase (pgvector) + Google Gemini + Groq**.
 
 | | URL |
 |---|---|
-| ⚙️ Backend API | `https://your-backend.onrender.com` |
-| 📖 Swagger Docs | `https://your-backend.onrender.com/docs` |
+| ⚙️ Backend API | `https://support-copilot-backend.onrender.com` |
+| 📖 Swagger Docs | `https://support-copilot-backend.onrender.com/docs` |
 | 🖥️ Frontend Repo | `https://github.com/SahlaThasnim89/support-copilot-frontend.git` |
-| 🖥️ Frontend Live | `https://your-frontend.vercel.app` |
+| 🖥️ Frontend Live | `https://real-time-support-copilot.netlify.app` |
 
-> Replace with your actual deployed URLs after deployment.
 
 ---
 
@@ -112,7 +111,7 @@ backend/
 ### Step 2 — Clone and Install
 
 ```bash
-git clone https://github.com/yourusername/support-copilot-backend.git
+git clone https://github.com/SahlaThasnim89/support-copilot-backend.git
 cd support-copilot-backend
 
 # Create virtual environment
