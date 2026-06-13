@@ -28,7 +28,7 @@ Customer Query
 │                                         │
 │  1. Embed query                         │
 │     LangChain + Gemini                  │
-│     gemini-embedding-001         │
+│     gemini-embedding-001                │
 │     → 3072-dim vector                   │
 │           │                             │
 │  2. Vector search in Supabase           │
