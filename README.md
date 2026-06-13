@@ -1,7 +1,7 @@
 # 🤖 Support Copilot — Backend API
 
 RAG-based support agent backend that suggests replies to customer queries using past support tickets.
-Built with **FastAPI + Supabase (pgvector) + Google Gemini + Groq**.
+Built with **FastAPI + LangChain + Supabase (pgvector) + Google Gemini + Groq**.
 
 ---
 
@@ -27,11 +27,13 @@ Customer Query
 │            FastAPI Backend              │
 │                                         │
 │  1. Embed query                         │
-│     Gemini gemini-embedding-001         │
+│     LangChain + Gemini                  │
+│     gemini-embedding-001                │
 │     → 3072-dim vector                   │
 │           │                             │
 │  2. Vector search in Supabase           │
-│     pgvector cosine similarity          │
+│     LangChain + pgvector                │
+│     cosine similarity (threshold 0.65)  │
 │     → Returns top-3 similar tickets     │
 │           │                             │
 │  3. Build RAG prompt                    │
@@ -39,8 +41,8 @@ Customer Query
 │     as context                          │
 │           │                             │
 │  4. Generate reply                      │
-│     Groq (primary, free tier)           │
-│     Gemini (fallback)                   │
+│     LangChain + Groq (primary)          │
+│     LangChain + Gemini (fallback)       │
 │           │                             │
 │  5. Return suggested_reply + citations  │
 └─────────────────────────────────────────┘
@@ -53,10 +55,11 @@ Customer Query
 | Layer | Tool |
 |---|---|
 | Framework | FastAPI (Python 3.12) |
+| RAG Framework | LangChain |
 | Database | Supabase (Postgres + pgvector) |
-| Embeddings | Google Gemini `gemini-embedding-001` |
-| LLM Primary | Groq `llama-3.1-8b-instant` (free tier) |
-| LLM Fallback | Google Gemini `gemini-2.0-flash-lite` |
+| Embeddings | LangChain + Google Gemini `gemini-embedding-001` |
+| LLM Primary | LangChain + Groq `llama-3.1-8b-instant` (free tier) |
+| LLM Fallback | LangChain + Google Gemini `gemini-1.5-flash` |
 | Hosting | Render |
 
 ---
@@ -71,9 +74,9 @@ backend/
 │   │   ├── rag.py                ← POST /suggest-reply, POST /feedback
 │   │   └── ingest.py             ← POST /ingest, /ingest/bulk, GET /tickets
 │   ├── services/
-│   │   ├── embedding_service.py  ← Gemini embeddings (3072-dim vectors)
-│   │   ├── retrieval_service.py  ← Supabase pgvector similarity search
-│   │   └── llm_service.py        ← Groq primary + Gemini fallback
+│   │   ├── embedding_service.py  ← LangChain + Gemini embeddings (3072-dim vectors)
+│   │   ├── retrieval_service.py  ← LangChain embeddings + Supabase pgvector similarity search
+│   │   ├── llm_service.py        ← LangChain ChatGroq primary + ChatGoogleGenerativeAI fallback
 │   ├── models/
 │   │   └── schemas.py            ← Pydantic request/response models
 │   └── core/
@@ -142,7 +145,7 @@ SUPABASE_SERVICE_KEY=your-service-role-key
 GEMINI_API_KEY=your-gemini-api-key
 GROQ_API_KEY=your-groq-api-key
 TOP_K=3
-SIMILARITY_THRESHOLD=0.50
+SIMILARITY_THRESHOLD=0.65
 ```
 
 ---
@@ -269,8 +272,8 @@ Submit 👍/👎 feedback on a suggestion (bonus feature).
 **Why combine user_query + agent_response for embedding?**
 Embedding both sides of the conversation gives richer semantic context than embedding just the query. This improves retrieval quality for paraphrased or partial queries.
 
-**Why similarity threshold = 0.50?**
-After testing, 0.70 was too strict for a small dataset — it missed valid paraphrased queries like "My order hasn't arrived" vs "My order has not arrived yet". 0.50 balances precision and recall at this scale. Fully tunable via `SIMILARITY_THRESHOLD` in `.env`.
+**Why similarity threshold = 0.65?**
+After testing, 0.70 was too strict for a small dataset — it missed valid paraphrased queries like "My order hasn't arrived" vs "My order has not arrived yet". 0.50 returned irrelevant citations for out-of-domain queries (e.g. "what is the weather today?" matched shipping tickets at 0.51). Raising to 0.65 filters noise while still catching valid paraphrased queries. Fully tunable via `SIMILARITY_THRESHOLD` in `.env`.
 
 **Why Groq as primary LLM?**
 Gemini's free tier has strict per-minute quotas causing frequent `429 RESOURCE_EXHAUSTED` errors. Groq offers 14,400 free requests/day with higher rate limits — far more reliable for demos. Gemini remains as automatic fallback.
@@ -280,6 +283,9 @@ The `ivfflat` index in pgvector supports a maximum of 2000 dimensions. Since `ge
 
 **Why true RAG instead of full-context prompting?**
 The assignment explicitly requires embedding + retrieval. More importantly, RAG prevents hallucinations by grounding every response in real past tickets, making the system trustworthy and auditable via citations.
+
+**Why LangChain?**
+LangChain provides a unified interface for embeddings and LLM calls, making it easy to swap providers (e.g. Groq → Gemini) without changing application logic. The `ChatGroq` and `ChatGoogleGenerativeAI` wrappers standardize message formatting across providers. Supabase RPC is called directly rather than via `SupabaseVectorStore` due to a parameter naming mismatch with our custom `match_tickets` function.
 
 ---
 
