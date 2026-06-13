@@ -1,12 +1,26 @@
-from google import genai
-from google.genai import types
+from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
 from app.core.config import get_settings
 import logging
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-client = genai.Client(api_key=settings.gemini_api_key)
+groq_llm = ChatGroq(
+    model="llama-3.1-8b-instant",
+    api_key=settings.groq_api_key,
+    temperature=0.3,
+    max_tokens=512,
+)
+
+
+gemini_llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash-lite",
+    google_api_key=settings.gemini_api_key,
+    temperature=0.3,
+    max_output_tokens=512,
+)
 
 
 def build_prompt(user_query: str, retrieved_tickets: list[dict]) -> str:
@@ -37,46 +51,26 @@ If no tickets are relevant, say: "I don't have enough past context. A human agen
 Suggested Reply:"""
 
 
-def generate_with_gemini(prompt: str) -> str:
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.3,
-            max_output_tokens=512,
-        ),
-    )
-    return response.text.strip()
-
-
-def generate_with_groq(prompt: str) -> str:
-    from groq import Groq
-    groq_client = Groq(api_key=settings.groq_api_key)
-    response = groq_client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=512,
-    )
-    return response.choices[0].message.content.strip()
-
-
 def generate_reply(user_query: str, retrieved_tickets: list[dict]) -> tuple[str, bool]:
     prompt = build_prompt(user_query, retrieved_tickets)
+    message = [HumanMessage(content=prompt)]
 
-    # Try Groq first (reliable free tier)
+    # Try Groq first
     try:
-        reply = generate_with_groq(prompt)
-        logger.info("[LLM] Reply generated using Groq")
-        return reply, False
+        response = groq_llm.invoke(message)
+        logger.info("[LLM] Reply generated using Groq (LangChain)")
+        return response.content.strip(), False
     except Exception as e:
+        # in generate_reply, change the Groq except block to:
         logger.warning(f"[LLM] Groq failed: {e} — switching to Gemini")
 
     # Fallback to Gemini
     try:
-        reply = generate_with_gemini(prompt)
-        logger.info("[LLM] Reply generated using Gemini (fallback)")
-        return reply, True
+        response = gemini_llm.invoke(message)
+        logger.info("[LLM] Reply generated using Gemini (LangChain fallback)")
+        return response.content.strip(), True
     except Exception as e:
         logger.error(f"[LLM] Both failed: {e}")
         raise RuntimeError("Both LLM providers failed. Please try again later.")
+
+

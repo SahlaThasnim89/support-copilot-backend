@@ -1,39 +1,34 @@
-from google import genai
-from google.genai import types
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from app.core.config import get_settings
 import logging
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-client = genai.Client(api_key=settings.gemini_api_key)
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/gemini-embedding-001",
+    google_api_key=settings.gemini_api_key,
+    task_type="retrieval_document",
+)
 
-EMBEDDING_MODEL = "gemini-embedding-001"
-EMBEDDING_DIMENSION = 3072
+query_embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/gemini-embedding-001",
+    google_api_key=settings.gemini_api_key,
+    task_type="retrieval_query",
+)
 
 
 def get_embedding(text: str) -> list[float]:
     try:
-        text = text.replace("\n", " ").strip()
-        result = client.models.embed_content(
-            model=EMBEDDING_MODEL,
-            contents=text,
-        )
-        return result.embeddings[0].values
+        return embeddings.embed_query(text.replace("\n", " ").strip())
     except Exception as e:
-        logger.error(f"Gemini embedding failed: {e}")
+        logger.error(f"Embedding failed: {e}")
         raise RuntimeError(f"Embedding generation failed: {str(e)}")
 
 
 def get_query_embedding(text: str) -> list[float]:
     try:
-        text = text.replace("\n", " ").strip()
-        result = client.models.embed_content(
-            model=EMBEDDING_MODEL,
-            contents=text,
-            config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
-        )
-        return result.embeddings[0].values
+        return query_embeddings.embed_query(text.replace("\n", " ").strip())
     except Exception as e:
-        logger.error(f"Gemini query embedding failed: {e}")
+        logger.error(f"Query embedding failed: {e}")
         raise RuntimeError(f"Query embedding generation failed: {str(e)}")
