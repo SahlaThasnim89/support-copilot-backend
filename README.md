@@ -1,7 +1,7 @@
 # 🤖 Support Copilot — Backend API
 
 RAG-based support agent backend that suggests replies to customer queries using past support tickets.
-Built with **FastAPI + Supabase (pgvector) + Google Gemini + Groq**.
+Built with **FastAPI + LangChain + Supabase (pgvector) + Google Gemini + Groq**.
 
 ---
 
@@ -27,11 +27,13 @@ Customer Query
 │            FastAPI Backend              │
 │                                         │
 │  1. Embed query                         │
-│     Gemini gemini-embedding-001         │
+│     LangChain + Gemini                  │
+│     gemini-embedding-001         │
 │     → 3072-dim vector                   │
 │           │                             │
 │  2. Vector search in Supabase           │
-│     pgvector cosine similarity          │
+│     LangChain + pgvector                │
+│     cosine similarity (threshold 0.65)  │
 │     → Returns top-3 similar tickets     │
 │           │                             │
 │  3. Build RAG prompt                    │
@@ -39,8 +41,8 @@ Customer Query
 │     as context                          │
 │           │                             │
 │  4. Generate reply                      │
-│     Groq (primary, free tier)           │
-│     Gemini (fallback)                   │
+│     LangChain + Groq (primary)          │
+│     LangChain + Gemini (fallback)       │
 │           │                             │
 │  5. Return suggested_reply + citations  │
 └─────────────────────────────────────────┘
@@ -72,9 +74,9 @@ backend/
 │   │   ├── rag.py                ← POST /suggest-reply, POST /feedback
 │   │   └── ingest.py             ← POST /ingest, /ingest/bulk, GET /tickets
 │   ├── services/
-│   │   ├── embedding_service.py  ← Gemini embeddings (3072-dim vectors)
-│   │   ├── retrieval_service.py  ← Supabase pgvector similarity search
-│   │   └── llm_service.py        ← Groq primary + Gemini fallback
+│   │   ├── embedding_service.py  ← LangChain + Gemini embeddings (3072-dim vectors)
+│   │   ├── retrieval_service.py  ← LangChain embeddings + Supabase pgvector similarity search
+│   │   ├── llm_service.py        ← LangChain ChatGroq primary + ChatGoogleGenerativeAI fallback
 │   ├── models/
 │   │   └── schemas.py            ← Pydantic request/response models
 │   └── core/
