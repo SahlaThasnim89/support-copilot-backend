@@ -25,7 +25,7 @@ def retrieve_similar_tickets(query: str, top_k: int = 3) -> list[dict]:
         supabase = get_supabase()
         response = supabase.rpc("match_tickets", {
             "query_embedding": embedding,
-            "match_threshold": 0.5,
+            "match_threshold": 0.65,
             "match_count": top_k,
         }).execute()
 
