@@ -16,7 +16,7 @@ groq_llm = ChatGroq(
 
 
 gemini_llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-lite",
+    model="gemini-1.5-flash",
     google_api_key=settings.gemini_api_key,
     temperature=0.3,
     max_output_tokens=512,
@@ -61,7 +61,6 @@ def generate_reply(user_query: str, retrieved_tickets: list[dict]) -> tuple[str,
         logger.info("[LLM] Reply generated using Groq (LangChain)")
         return response.content.strip(), False
     except Exception as e:
-        # in generate_reply, change the Groq except block to:
         logger.warning(f"[LLM] Groq failed: {e} — switching to Gemini")
 
     # Fallback to Gemini
