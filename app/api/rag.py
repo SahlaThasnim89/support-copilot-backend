@@ -19,7 +19,7 @@ async def suggest_reply(request: SuggestRequest):
     2. Retrieve top-k similar past tickets from Supabase
     3. If no tickets found → return fallback message
     4. Build prompt with retrieved tickets as context
-    5. Generate reply via Gemini
+    5. Generate reply via Groq (Gemini fallback)
     6. Return reply + citations
     """
     query = request.message.strip()

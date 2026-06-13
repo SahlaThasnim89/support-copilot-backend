@@ -8,7 +8,7 @@ load_dotenv()
 import httpx
 import json
 
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://support-copilot-backend.onrender.com")
 
 SAMPLE_TICKETS = [
     # Billing

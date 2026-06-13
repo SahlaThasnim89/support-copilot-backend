@@ -15,7 +15,7 @@ async def ingest_ticket(ticket: TicketCreate):
  
     What happens:
     1. Combine user_query + agent_response into one text for embedding
-    2. Generate a 372-dim vector from gemini-embedding-001
+    2. Generate a 3072-dim vector from gemini-embedding-001
     3. Store ticket + vector in Supabase support_tickets table
     """
     supabase = get_supabase()
