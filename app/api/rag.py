@@ -3,6 +3,7 @@ from app.models.schemas import SuggestRequest, SuggestResponse, Citation, Feedba
 from app.services.retrieval_service import retrieve_similar_tickets
 from app.services.llm_service import generate_reply
 from app.core.supabase import get_supabase
+from app.services.cache_services import get_cached, set_cache, get_cache_stats
 import logging
  
 logger = logging.getLogger(__name__)
@@ -23,6 +24,12 @@ async def suggest_reply(request: SuggestRequest):
     6. Return reply + citations
     """
     query = request.message.strip()
+
+    # Cache check
+    cached = get_cached(query)
+    if cached:
+        logger.info("[API] Returning cached response")
+        return SuggestResponse(**cached)
  
     if not query:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
@@ -69,6 +76,14 @@ async def suggest_reply(request: SuggestRequest):
  
     logger.info(f"[API] Reply generated | tickets={len(tickets)} | fallback={fallback_used}")
  
+    # ── Store in cache ────────────────────────────────────────────────────────────
+    set_cache(query, {
+        "suggested_reply": suggested_reply,
+        "citations": [c.model_dump() for c in citations],
+        "retrieved_count": len(tickets),
+        "fallback_used": fallback_used,
+    })
+
     return SuggestResponse(
         suggested_reply=suggested_reply,
         citations=citations,
@@ -97,3 +112,8 @@ async def submit_feedback(request: FeedbackRequest):
         logger.error(f"[Feedback] Failed to save: {e}")
         return FeedbackResponse(message="Failed to record feedback.", recorded=False)
  
+
+@router.get("/cache/stats")
+def cache_stats():
+    """Returns number of cached queries."""
+    return get_cache_stats()
