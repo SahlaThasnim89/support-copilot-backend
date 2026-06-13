@@ -1,17 +1,11 @@
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from app.core.supabase import get_supabase
 from app.core.config import get_settings
+from app.services.embedding_service import get_query_embedding
 import logging
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-
-query_embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
-    google_api_key=settings.gemini_api_key,
-    task_type="retrieval_query",
-)
 
 
 def retrieve_similar_tickets(query: str, top_k: int = 3) -> list[dict]:
@@ -20,7 +14,7 @@ def retrieve_similar_tickets(query: str, top_k: int = 3) -> list[dict]:
     Returns same dict format your existing router expects.
     """
     try:
-        embedding = query_embeddings.embed_query(query.replace("\n", " ").strip())
+        embedding = get_query_embedding(query.replace("\n", " ").strip())
 
         supabase = get_supabase()
         response = supabase.rpc("match_tickets", {
