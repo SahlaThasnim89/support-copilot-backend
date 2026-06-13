@@ -29,14 +29,14 @@ async def suggest_reply(request: SuggestRequest):
  
     logger.info(f"[API] New query: '{query[:80]}'")
  
-    # ── Step 1+2: Retrieve similar tickets ────────────────────────────────────
+    # ── Retrieve similar tickets ────────────────────────────────────
     try:
         tickets = retrieve_similar_tickets(query)
     except Exception as e:
         logger.error(f"[API] Retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Retrieval error: {str(e)}")
  
-    # ── Step 3: No tickets found edge case ────────────────────────────────────
+    # ── No tickets found edge case ────────────────────────────────────
     if not tickets:
         logger.warning("[API] No similar tickets found above threshold")
         return SuggestResponse(
@@ -49,14 +49,14 @@ async def suggest_reply(request: SuggestRequest):
             fallback_used=False,
         )
  
-    # ── Step 4+5: Generate reply with retrieved context ───────────────────────
+    # ── Generate reply with retrieved context ───────────────────────
     try:
         suggested_reply, fallback_used = generate_reply(query, tickets)
     except Exception as e:
         logger.error(f"[API] LLM generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
  
-    # ── Step 6: Build citations ────────────────────────────────────────────────
+    # ── Build citations ────────────────────────────────────────────────
     citations = [
         Citation(
             ticket_id=t["id"],
