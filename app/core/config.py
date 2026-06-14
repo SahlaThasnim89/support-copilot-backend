@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # RAG
     top_k: int = 3
     similarity_threshold: float = 0.65
+
+    # RAG
+    upstash_redis_rest_url: str = ""      
+    upstash_redis_rest_token: str = ""    
  
     class Config:
         env_file = ".env"
