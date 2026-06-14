@@ -79,7 +79,7 @@ async def suggest_reply(request: SuggestRequest):
     logger.info(f"[API] Reply generated | tickets={len(tickets)} | fallback={fallback_used}")
  
 
-     try:
+    try:
         lf = get_langfuse()
         if lf:
             with lf.start_as_current_observation(
