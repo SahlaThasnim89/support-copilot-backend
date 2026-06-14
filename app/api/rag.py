@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import SuggestRequest, SuggestResponse, Citation, FeedbackRequest, FeedbackResponse
 from app.services.retrieval_service import retrieve_similar_tickets
-from app.services.llm_service import generate_reply
+from app.services.llm_service import generate_reply, stream_reply
 from app.core.supabase import get_supabase
 from app.services.cache_service import get_cached, set_cache, get_cache_stats
 import logging
 from app.services.observability_service import get_langfuse
 import time
+import json
  
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -117,8 +118,8 @@ async def suggest_reply(request: SuggestRequest):
                 )
     except Exception as e:
         logger.warning(f"[Langfuse] Tracing failed: {e}")
-    
-        
+
+
     # ── Store in cache ────────────────────────────────────────────────────────────
     set_cache(query, {
         "suggested_reply": suggested_reply,
@@ -161,3 +162,59 @@ async def submit_feedback(request: FeedbackRequest):
 def cache_stats():
     """Returns number of cached queries."""
     return get_cache_stats()
+
+
+@router.post("/suggest-reply/stream")
+async def suggest_reply_stream(request: SuggestRequest):
+    query = request.message.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    logger.info(f"[API] Stream query: '{query[:80]}'")
+
+    try:
+        tickets = retrieve_similar_tickets(query)
+    except Exception as e:
+        logger.error(f"[API] Retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Retrieval error: {str(e)}")
+
+    citations = [
+        Citation(
+            ticket_id=t["id"],
+            snippet=f"Q: {t['user_query'][:100]} | A: {t['agent_response'][:150]}",
+            similarity_score=t["similarity_score"],
+            category=t.get("category"),
+        )
+        for t in tickets
+    ]
+
+    if not tickets:
+        async def fallback_stream():
+            yield f"data: {json.dumps({'token': 'I dont have enough past context. A human agent will assist you shortly.', 'done': False})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'citations': [], 'retrieved_count': 0})}\n\n"
+        return StreamingResponse(fallback_stream(), media_type="text/event-stream")
+
+    async def generate():
+        full_reply = ""
+        try:
+            for token in stream_reply(query, tickets):
+                full_reply += token
+                yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+
+            # Send final event with citations
+            yield f"data: {json.dumps({'done': True, 'citations': [c.model_dump() for c in citations], 'retrieved_count': len(tickets)})}\n\n"
+
+            # Cache the full reply
+            set_cache(query, {
+                "suggested_reply": full_reply,
+                "citations": [c.model_dump() for c in citations],
+                "retrieved_count": len(tickets),
+                "fallback_used": False,
+            })
+            logger.info(f"[API] Stream complete | tokens={len(full_reply)} | tickets={len(tickets)}")
+
+        except Exception as e:
+            logger.error(f"[API] Stream failed: {e}")
+            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")

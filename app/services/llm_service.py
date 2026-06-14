@@ -3,6 +3,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from app.core.config import get_settings
 import logging
+from typing import Generator
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -73,3 +74,24 @@ def generate_reply(user_query: str, retrieved_tickets: list[dict]) -> tuple[str,
         raise RuntimeError("Both LLM providers failed. Please try again later.")
 
 
+def stream_reply(user_query: str, retrieved_tickets: list[dict]) -> Generator[str, None, None]:
+    prompt = build_prompt(user_query, retrieved_tickets)
+    message = [HumanMessage(content=prompt)]
+
+    # Try Groq first
+    try:
+        for chunk in groq_llm.stream(message):
+            yield chunk.content
+        logger.info("[LLM] Streamed reply using Groq (LangChain)")
+        return
+    except Exception as e:
+        logger.warning(f"[LLM] Groq streaming failed: {e} — switching to Gemini")
+
+    # Fallback to Gemini
+    try:
+        for chunk in gemini_llm.stream(message):
+            yield chunk.content
+        logger.info("[LLM] Streamed reply using Gemini (LangChain fallback)")
+    except Exception as e:
+        logger.error(f"[LLM] Both streaming failed: {e}")
+        raise RuntimeError("Both LLM providers failed. Please try again later.")
