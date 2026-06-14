@@ -10,6 +10,7 @@ try:
         public_key=settings.langfuse_public_key,
         secret_key=settings.langfuse_secret_key,
         base_url=settings.langfuse_base_url,
+        should_export_span=lambda span: True,
     )
     logger.info("[Langfuse] Client initialized successfully")
 except Exception as e:

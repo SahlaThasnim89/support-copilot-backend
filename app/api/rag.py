@@ -6,6 +6,7 @@ from app.core.supabase import get_supabase
 from app.services.cache_service import get_cached, set_cache, get_cache_stats
 import logging
 from app.services.observability_service import get_langfuse
+import time
  
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -36,14 +37,20 @@ async def suggest_reply(request: SuggestRequest):
     if cached:
         logger.info("[API] Returning cached response")
         return SuggestResponse(**cached)
+
+    
+    lf = get_langfuse()
+    trace_start = time.time()
  
 
     # ── Retrieve similar tickets ────────────────────────────────────
+    retrieval_start = time.time()
     try:
         tickets = retrieve_similar_tickets(query)
     except Exception as e:
         logger.error(f"[API] Retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Retrieval error: {str(e)}")
+    retrieval_time = round(time.time() - retrieval_start, 2)
  
     # ── No tickets found edge case ────────────────────────────────────
     if not tickets:
@@ -59,11 +66,14 @@ async def suggest_reply(request: SuggestRequest):
         )
  
     # ── Generate reply with retrieved context ───────────────────────
+    llm_start = time.time()
     try:
         suggested_reply, fallback_used = generate_reply(query, tickets)
     except Exception as e:
         logger.error(f"[API] LLM generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
+    llm_time = round(time.time() - llm_start, 2)
+    total_time = round(time.time() - trace_start, 2)
  
     # ── Build citations ────────────────────────────────────────────────
     citations = [
@@ -80,21 +90,34 @@ async def suggest_reply(request: SuggestRequest):
  
 
     try:
-        lf = get_langfuse()
         if lf:
             with lf.start_as_current_observation(
-                as_type="span",
                 name="rag-pipeline",
                 input={"query": query},
             ) as span:
-                span.update(output={
-                    "suggested_reply": suggested_reply,
-                    "retrieved_count": len(tickets),
-                    "fallback_used": fallback_used,
-                })
+                with span.start_as_current_observation(
+                    name="retrieval",
+                    input={"query": query},
+                ) as retrieval_span:
+                    retrieval_span.update(
+                        output={"tickets_found": len(tickets)},
+                        metadata={"latency_seconds": retrieval_time}
+                    )
+                with span.start_as_current_observation(
+                    name="llm-generation",
+                    input={"query": query},
+                ) as llm_span:
+                    llm_span.update(
+                        output={"reply": suggested_reply, "fallback_used": fallback_used},
+                        metadata={"latency_seconds": llm_time}
+                    )
+                span.update(
+                    output={"suggested_reply": suggested_reply, "retrieved_count": len(tickets)},
+                    metadata={"total_latency_seconds": total_time}
+                )
     except Exception as e:
         logger.warning(f"[Langfuse] Tracing failed: {e}")
-
+    
         
     # ── Store in cache ────────────────────────────────────────────────────────────
     set_cache(query, {
