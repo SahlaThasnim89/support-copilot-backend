@@ -3,7 +3,7 @@ from app.models.schemas import SuggestRequest, SuggestResponse, Citation, Feedba
 from app.services.retrieval_service import retrieve_similar_tickets
 from app.services.llm_service import generate_reply
 from app.core.supabase import get_supabase
-from app.services.cache_services import get_cached, set_cache, get_cache_stats
+from app.services.cache_service import get_cached, set_cache, get_cache_stats
 import logging
  
 logger = logging.getLogger(__name__)
