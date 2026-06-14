@@ -292,7 +292,6 @@ LangChain provides a unified interface for embeddings and LLM calls, making it e
 ## ⚠️ Known Limitations
 
 - **Small dataset** — Only 11 seed tickets; real systems need thousands for good coverage
-- **No re-ranking** — Tickets ranked by cosine similarity only; a cross-encoder would improve precision
 - **Single-turn** — No conversation history; each query is treated independently
 - **Cold start** — Render free tier spins down after inactivity; first request may take ~30 seconds
 - **Gemini quota** — Free tier has strict limits; Groq fallback handles this automatically
@@ -307,6 +306,8 @@ LangChain provides a unified interface for embeddings and LLM calls, making it e
 - ✅ **Similarity score transparency** — every citation shows its match score
 - ✅ **Debug logging** — all retrieved context logged server-side for debuggability
 - ✅ **Redis Caching** — Upstash Redis cache with 24hr sliding TTL, reduces repeated query latency from ~3s to ~400ms, persists across server restarts
+- ✅ **HNSW index** — Added binary quantized HNSW index for scalable vector search beyond 100k tickets
+- ✅ **Langfuse Observability** — traces full RAG pipeline with per-step latency (retrieval, LLM generation)
 
 ---
 
