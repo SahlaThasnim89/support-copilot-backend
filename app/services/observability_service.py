@@ -1,4 +1,4 @@
-import langfuse from Langfuse
+from langfuse import Langfuse
 from app.core.config import get_settings
 import logging
 
