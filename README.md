@@ -306,6 +306,7 @@ LangChain provides a unified interface for embeddings and LLM calls, making it e
 - ✅ **Automatic LLM fallback** — Groq → Gemini, seamless to the user
 - ✅ **Similarity score transparency** — every citation shows its match score
 - ✅ **Debug logging** — all retrieved context logged server-side for debuggability
+- ✅ **Redis Caching** — Upstash Redis cache with 24hr sliding TTL, reduces repeated query latency from ~3s to ~400ms, persists across server restarts
 
 ---
 
