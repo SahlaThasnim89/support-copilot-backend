@@ -5,6 +5,7 @@ from app.services.llm_service import generate_reply
 from app.core.supabase import get_supabase
 from app.services.cache_service import get_cached, set_cache, get_cache_stats
 import logging
+from app.services.observability_service import create_trace
  
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -25,9 +26,12 @@ async def suggest_reply(request: SuggestRequest):
     """
     query = request.message.strip()
 
+    trace = create_trace(query)
+
     # Cache check
     cached = get_cached(query)
     if cached:
+        trace.update(output={"source": "cache"})
         logger.info("[API] Returning cached response")
         return SuggestResponse(**cached)
  
@@ -35,16 +39,21 @@ async def suggest_reply(request: SuggestRequest):
         raise HTTPException(status_code=400, detail="Message cannot be empty")
  
     logger.info(f"[API] New query: '{query[:80]}'")
+
  
     # ── Retrieve similar tickets ────────────────────────────────────
     try:
+        retrieval_span = trace.span(name="retrieval")
         tickets = retrieve_similar_tickets(query)
+        retrieval_span.end(output={"tickets_found": len(tickets)})
     except Exception as e:
+        trace.update(output={"error": str(e)})
         logger.error(f"[API] Retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Retrieval error: {str(e)}")
  
     # ── No tickets found edge case ────────────────────────────────────
     if not tickets:
+        trace.update(output={"source": "fallback"})
         logger.warning("[API] No similar tickets found above threshold")
         return SuggestResponse(
             suggested_reply=(
@@ -58,8 +67,10 @@ async def suggest_reply(request: SuggestRequest):
  
     # ── Generate reply with retrieved context ───────────────────────
     try:
+        llm_span = trace.span(name="llm-generation")
         suggested_reply, fallback_used = generate_reply(query, tickets)
     except Exception as e:
+        trace.update(output={"error": str(e)})
         logger.error(f"[API] LLM generation failed: {e}")
         raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
  
@@ -82,6 +93,13 @@ async def suggest_reply(request: SuggestRequest):
         "citations": [c.model_dump() for c in citations],
         "retrieved_count": len(tickets),
         "fallback_used": fallback_used,
+    })
+
+    trace.update(output={
+        "suggested_reply": suggested_reply,
+        "retrieved_count": len(tickets),
+        "fallback_used": fallback_used,
+        "source": "rag",
     })
 
     return SuggestResponse(
