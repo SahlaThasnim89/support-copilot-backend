@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 _cache: dict = {}
-CACHE_TTL_SECONDS = 3600  # 1 hour
+CACHE_TTL_SECONDS = 3600 * 24  # 24 hour
 
 
 def _hash_query(query: str) -> str:
@@ -22,6 +22,7 @@ def get_cached(query: str) -> dict | None:
             del _cache[key]
             logger.info(f"[Cache] Expired: '{query[:50]}'")
             return None
+        entry["expires_at"] = time.time() + CACHE_TTL_SECONDS  #sliding TTL
         logger.info(f"[Cache] HIT: '{query[:50]}'")
         return entry["data"]
     except Exception as e:
