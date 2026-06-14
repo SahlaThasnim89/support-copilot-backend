@@ -5,7 +5,7 @@ from app.services.llm_service import generate_reply
 from app.core.supabase import get_supabase
 from app.services.cache_service import get_cached, set_cache, get_cache_stats
 import logging
-from app.services.observability_service import create_trace
+from app.services.observability_service import get_langfuse
  
 logger = logging.getLogger(__name__)
 router = APIRouter()
